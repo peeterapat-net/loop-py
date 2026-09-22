@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python AR: LOOP ADVENTURE</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- MediaPipe for Hand Tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <!-- Tone.js for Audio Feedback -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js" crossorigin="anonymous"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
+
+    <!-- Tailwind Configuration for Custom Colors -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        mint: '#98FF98',
+                        emerald: '#50C878',
+                        cyan: '#00FFFF',
+                        softYellow: '#FAFA33',
+                        glassBg: 'rgba(15, 30, 25, 0.75)',
+                    },
+                    fontFamily: {
+                        sans: ['Kanit', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #050505;
+        }
+
+        /* Glassmorphism Styles */
+        .glass-panel {
+            background: rgba(15, 30, 25, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(152, 255, 152, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 255, 255, 0.15);
+        }
+
+        /* AR Video Overlay */
+        #video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            transform: scaleX(-1); /* Mirror camera */
+        }
+
+        .output_canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        /* UI Layer */
+        #ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none; /* Let clicks pass through except on interactive elements */
+        }
+
+        /* Cursor */
+        #ar-cursor {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #00FFFF;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 100;
+            transition: width 0.1s, height 0.1s, background-color 0.1s;
+            box-shadow: 0 0 15px #00FFFF, inset 0 0 10px #00FFFF;
+        }
+
+        #ar-cursor.pinched {
+            width: 20px;
+            height: 20px;
+            background-color: rgba(250, 250, 51, 0.8);
+            border-color: #FAFA33;
+            box-shadow: 0 0 20px #FAFA33, inset 0 0 15px #FAFA33;
+        }
+
+        /* Clickable Elements */
+        .ar-clickable {
+            pointer-events: auto; /* Enable mouse/touch interactions */
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .ar-clickable:hover, .ar-clickable.hovered {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(152, 255, 152, 0.6);
+        }
+
+        /* Syntax Highlighter */
+        .python-code {
+            font-family: 'Fira Code', monospace;
+            color: #00FFFF;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px 15px;
+            border-radius: 10px;
+            border-left: 4px solid #50C878;
+        }
+
+        .keyword { color: #98FF98; font-weight: bold; }
+        .string { color: #FAFA33; }
+        .function { color: #00FFFF; }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+        .floating { animation: float 3s ease-in-out infinite; }
+        
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px #50C878; }
+            50% { box-shadow: 0 0 20px #98FF98; }
+            100% { box-shadow: 0 0 5px #50C878; }
+        }
+        .glowing { animation: pulse-glow 2s infinite; }
+
+        /* Progress Bar */
+        .progress-bar-bg {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            height: 20px;
+            width: 100%;
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #50C878, #00FFFF);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        /* Hidden class */
+        .hidden-screen { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <!-- Camera Background -->
+    <div id="video-container">
+        <video class="input_video hidden" playsinline></video>
+        <canvas class="output_canvas"></canvas>
+    </div>
+
+    <!-- AR Cursor -->
+    <div id="ar-cursor"></div>
+
+    <!-- UI Overlay -->
+    <div id="ui-layer" class="p-4 md:p-8">
+        
+        <!-- Top HUD (Always visible during game) -->
+        <div id="hud" class="hidden-screen flex justify-between items-start">
+            <div class="glass-panel p-3 px-5 flex items-center gap-4">
+                <i class="fa-solid fa-user-astronaut text-cyan text-2xl"></i>
+                <div>
+                    <div id="hud-name" class="text-mint font-bold text-lg leading-tight">Player</div>
+                    <div id="hud-score" class="text-softYellow font-mono text-sm">Score: 0</div>
+                </div>
+            </div>
+            <button onclick="changeScreen('menu')" class="ar-clickable glass-panel p-3 px-4 text-mint hover:text-white transition">
+                <i class="fa-solid fa-bars"></i> เมนูหลัก
+            </button>
+        </div>
+
+        <!-- SCREEN: Intro / Register -->
+        <div id="screen-intro" class="flex-1 flex items-center justify-center pointer-events-auto">
+            <div class="glass-panel p-8 max-w-md w-full text-center floating">
+                <h1 class="text-4xl font-bold text-mint mb-2 tracking-wider"><i class="fa-brands fa-python text-softYellow"></i> Python AR</h1>
+                <h2 class="text-xl text-cyan mb-8">LOOP ADVENTURE</h2>
+                
+                <div class="mt-6 mb-8">
+                    <label class="block text-sm text-emerald mb-2">ชื่อผู้เล่น (Player Name)</label>
+                    <input type="text" id="input-name" class="w-full max-w-xs mx-auto bg-black/50 border-2 border-cyan/50 rounded-lg p-4 text-center text-xl text-white focus:outline-none focus:border-mint focus:shadow-[0_0_15px_rgba(152,255,152,0.4)] transition" placeholder="ใส่ชื่อของคุณ">
+                </div>
+
+                <button onclick="startGameApp()" class="ar-clickable mt-4 w-full bg-gradient-to-r from-emerald to-cyan text-gray-900 font-bold py-3 rounded-lg shadow-lg hover:shadow-cyan/50 transition">
+                    <i class="fa-solid fa-camera mr-2"></i> เปิดกล้องเริ่มเล่น!
+                </button>
+                <p class="mt-4 text-xs text-gray-400">ใช้นิ้วชี้เป็น Cursor และจีบนิ้ว (Pinch) เพื่อกดปุ่ม</p>
+            </div>
+        </div>
+
+        <!-- SCREEN: Main Menu -->
+        <div id="screen-menu" class="hidden-screen flex-1 flex flex-col items-center justify-center">
+            <div class="glass-panel p-8 max-w-3xl w-full text-center mt-10">
+                <h2 class="text-3xl font-bold text-mint mb-6">เลือกด่านภารกิจ</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Mission 1 -->
+                    <div onclick="startMission('loop')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-mint border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-rotate"></i></div>
+                        <h3 class="text-xl font-bold text-mint mb-2">1. Loop Collector</h3>
+                        <p class="text-sm text-gray-300 mb-2">เก็บพลังงานตามจำนวนรอบ</p>
+                        <div class="python-code text-[10px]"><span class="keyword">for</span> _ <span class="keyword">in</span> <span class="function">range</span>(10):</div>
+                    </div>
+                    <!-- Mission 2 -->
+                    <div onclick="startMission('while')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-cyan border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-battery-full"></i></div>
+                        <h3 class="text-xl font-bold text-cyan mb-2">2. While Challenge</h3>
+                        <p class="text-sm text-gray-300 mb-2">ชาร์จพลังจนกว่าจะเต็ม</p>
+                        <div class="python-code text-[10px]"><span class="keyword">while</span> power < 100:</div>
+                    </div>
+                    <!-- Mission 3 -->
+                    <div onclick="startMission('for')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-emerald border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-robot"></i></div>
+                        <h3 class="text-xl font-bold text-emerald mb-2">3. For Factory</h3>
+                        <p class="text-sm text-gray-300 mb-2">สร้างหุ่นยนต์ตามคำสั่ง</p>
+                        <div class="python-code text-[10px]"><span class="keyword">for</span> bot <span class="keyword">in</span> <span class="function">bots</span>:</div>
+                    </div>
+                    <!-- Mission 4 -->
+                    <div onclick="startMission('range')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-softYellow border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-list-ol"></i></div>
+                        <h3 class="text-xl font-bold text-softYellow mb-2">4. Range Challenge</h3>
+                        <p class="text-sm text-gray-300 mb-2">เลือกลำดับตัวเลขให้ถูก</p>
+                        <div class="python-code text-[10px]"><span class="function">range</span>(2, 12, 2)</div>
+                    </div>
+                    <!-- Mission 5 -->
+                    <div onclick="startMission('nested')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-purple-400 border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-layer-group"></i></div>
+                        <h3 class="text-xl font-bold text-purple-400 mb-2">5. Nested Matrix</h3>
+                        <p class="text-sm text-gray-300 mb-2">เคลียร์ตาราง 2 มิติ</p>
+                        <div class="python-code text-[10px]"><span class="keyword">for</span> x <span class="keyword">in</span> col:<br>&nbsp;&nbsp;<span class="keyword">for</span> y <span class="keyword">in</span> row:</div>
+                    </div>
+                    <!-- Mission 6 -->
+                    <div onclick="startMission('condition')" class="ar-clickable glass-panel p-5 bg-opacity-40 hover:bg-opacity-60 border-pink-400 border-opacity-50 text-left relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-20 text-6xl group-hover:scale-110 transition duration-300"><i class="fa-solid fa-forward-step"></i></div>
+                        <h3 class="text-xl font-bold text-pink-400 mb-2">6. Continue Catcher</h3>
+                        <p class="text-sm text-gray-300 mb-2">เก็บข้อมูลแต่ข้าม Bug</p>
+                        <div class="python-code text-[10px]"><span class="keyword">if</span> bug: <span class="keyword">continue</span></div>
+                    </div>
+                </div>
+                <button onclick="changeScreen('summary')" class="ar-clickable mt-8 text-cyan border border-cyan px-6 py-2 rounded-full hover:bg-cyan hover:text-black transition">
+                    จบเกม & ดูสรุปผล
+                </button>
+            </div>
+        </div>
+
+        <!-- SCREEN: Game Active -->
+        <div id="screen-game" class="hidden-screen flex-1 flex flex-col items-center justify-between py-10 pointer-events-none">
+            <!-- Instruction Box -->
+            <div class="glass-panel p-4 text-center max-w-lg w-full mb-auto mt-10">
+                <h3 id="game-title" class="text-2xl font-bold text-mint mb-2">Mission Title</h3>
+                <div id="game-code" class="python-code text-sm md:text-base inline-block mb-2">code goes here</div>
+                <p id="game-instruction" class="text-white text-sm">Instruction here</p>
+            </div>
+
+            <!-- Game Arena (Interactive elements injected here) -->
+            <div id="game-arena" class="flex-1 w-full flex items-center justify-center relative pointer-events-auto">
+                <!-- Dynamic Content -->
+            </div>
+
+            <!-- Progress -->
+            <div class="w-full max-w-md mx-auto mt-auto mb-10">
+                <div class="flex justify-between text-sm text-cyan mb-1">
+                    <span id="progress-text">Progress: 0%</span>
+                </div>
+                <div class="progress-bar-bg">
+                    <div id="progress-fill" class="progress-bar-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SCREEN: Summary -->
+        <div id="screen-summary" class="hidden-screen flex-1 flex flex-col items-center justify-center pointer-events-auto">
+             <div class="glass-panel p-8 max-w-2xl w-full">
+                <h2 class="text-3xl font-bold text-mint mb-2 text-center"><i class="fa-solid fa-graduation-cap"></i> สรุปผลการเรียนรู้</h2>
+                <p class="text-center text-cyan mb-6">เก่งมาก! คุณทำภารกิจและเข้าใจ Loop ใน Python แล้ว</p>
+                
+                <div class="space-y-4 mb-6">
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-mint text-2xl mt-1"><i class="fa-solid fa-rotate"></i></div>
+                        <div>
+                            <h4 class="font-bold text-mint">LOOP (การวนซ้ำ)</h4>
+                            <p class="text-sm text-gray-300">คือการสั่งให้โปรแกรมทำงานเดิมซ้ำๆ เพื่อลดการเขียนโค้ดซ้ำซ้อน</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-cyan text-2xl mt-1"><i class="fa-solid fa-battery-full"></i></div>
+                        <div>
+                            <h4 class="font-bold text-cyan">WHILE Loop</h4>
+                            <p class="text-sm text-gray-300">ทำงานวนซ้ำ <span class="text-softYellow">"ขณะที่"</span> เงื่อนไขยังคงเป็นจริง (True)</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-emerald text-2xl mt-1"><i class="fa-solid fa-robot"></i></div>
+                        <div>
+                            <h4 class="font-bold text-emerald">FOR Loop</h4>
+                            <p class="text-sm text-gray-300">ทำงานวนซ้ำตามจำนวนรอบที่แน่นอน หรือวนตามสมาชิกในกลุ่ม</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-softYellow text-2xl mt-1"><i class="fa-solid fa-list-ol"></i></div>
+                        <div>
+                            <h4 class="font-bold text-softYellow">RANGE Function</h4>
+                            <p class="text-sm text-gray-300">คำสั่งสร้างชุดตัวเลข เช่น range(1,4) ได้ 1, 2, 3</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-purple-400 text-2xl mt-1"><i class="fa-solid fa-layer-group"></i></div>
+                        <div>
+                            <h4 class="font-bold text-purple-400">NESTED Loop</h4>
+                            <p class="text-sm text-gray-300">ลูปซ้อนลูป (Loop ใน Loop) ใช้จัดการข้อมูล 2 มิติ เช่น ตาราง หรือ พิกัด X, Y</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-4 p-3 bg-black/30 rounded-lg">
+                        <div class="text-pink-400 text-2xl mt-1"><i class="fa-solid fa-forward-step"></i></div>
+                        <div>
+                            <h4 class="font-bold text-pink-400">CONTINUE Statement</h4>
+                            <p class="text-sm text-gray-300">สั่งให้โปรแกรม "ข้าม" การทำงานในรอบปัจจุบัน และไปเริ่มรอบถัดไปทันที</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center bg-gray-900 rounded-lg p-4 mb-6">
+                    <div class="text-center w-full">
+                        <div class="text-sm text-gray-400">Total Score</div>
+                        <div id="summary-score" class="text-4xl font-mono text-softYellow">0</div>
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <button onclick="location.reload()" class="ar-clickable bg-gradient-to-r from-emerald to-cyan text-gray-900 font-bold px-8 py-3 rounded-full shadow-[0_0_15px_rgba(0,255,255,0.4)] hover:shadow-[0_0_25px_rgba(80,200,120,0.6)] transition">
+                        <i class="fa-solid fa-rotate-right mr-2"></i> เล่นใหม่อีกครั้ง
+                    </button>
+                </div>
+             </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- State Management ---
+        // TODO: วาง URL ที่ได้จากการ Deploy Google Apps Script ไว้ในเครื่องหมายคำพูดด้านล่างนี้
+        const APPSCRIPT_URL = ''; 
+
+        const state = {
+            nickname: '',
+            score: 0,
+            playData: [], // Store mission stats
+            currentMission: null,
+            missionStartTime: 0,
+            
+            // Interaction State
+            cursorX: 0,
+            cursorY: 0,
+            isPinched: false,
+            pinchCooldown: false,
+            
+            // Audio Synth
+            synths: {}
+        };
+
+        const config = {
+            pinchThreshold: 0.06,
+            releaseThreshold: 0.08
+        };
+
+        // --- Tone.js Setup ---
+        function initAudio() {
+            // Simple synth for clicks
+            state.synths.click = new Tone.Synth({
+                oscillator: { type: 'sine' },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.5 }
+            }).toDestination();
+            
+            // Synth for success
+            state.synths.success = new Tone.PolySynth(Tone.Synth).toDestination();
+            state.synths.success.set({ envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 } });
+            
+            // Synth for error
+            state.synths.error = new Tone.Synth({
+                oscillator: { type: 'sawtooth' },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0, release: 0.2 }
+            }).toDestination();
+        }
+
+        function playSound(type) {
+            if(Tone.context.state !== 'running') return;
+            const now = Tone.now();
+            switch(type) {
+                case 'click':
+                    state.synths.click.triggerAttackRelease("C5", "8n");
+                    break;
+                case 'success':
+                    state.synths.success.triggerAttackRelease(["C4", "E4", "G4", "C5"], "4n");
+                    break;
+                case 'error':
+                    state.synths.error.triggerAttackRelease("G2", "8n");
+                    break;
+                case 'collect':
+                    state.synths.click.triggerAttackRelease("G5", "16n");
+                    break;
+            }
+        }
+
+        // --- Core UI Functions ---
+        function changeScreen(screenId) {
+            document.querySelectorAll('#ui-layer > div').forEach(el => {
+                if (el.id !== 'ar-cursor' && el.id !== 'hud') {
+                    el.classList.add('hidden-screen');
+                }
+            });
+            document.getElementById(`screen-${screenId}`).classList.remove('hidden-screen');
+            
+            if (screenId !== 'intro' && screenId !== 'summary') {
+                document.getElementById('hud').classList.remove('hidden-screen');
+            } else {
+                document.getElementById('hud').classList.add('hidden-screen');
+            }
+        }
+
+        function updateScore(points) {
+            state.score += points;
+            document.getElementById('hud-score').innerText = `Score: ${state.score}`;
+            const hudScore = document.getElementById('hud-score');
+            hudScore.classList.add('text-white');
+            setTimeout(() => hudScore.classList.remove('text-white'), 300);
+        }
+
+        // --- Initialization ---
+        async function startGameApp() {
+            const name = document.getElementById('input-name').value.trim();
+            
+            if (!name) {
+                alert("กรุณากรอกชื่อผู้เล่นก่อนเริ่มเล่นเกมครับ");
+                return;
+            }
+
+            state.nickname = name;
+            document.getElementById('hud-name').innerText = name;
+
+            // Init Audio context on user gesture
+            await Tone.start();
+            initAudio();
+
+            // Setup AR Camera
+            initMediaPipe();
+            
+            changeScreen('menu');
+            playSound('success');
+        }
+
+        // --- MediaPipe Hand Tracking ---
+        const videoElement = document.getElementsByClassName('input_video')[0];
+        const canvasElement = document.getElementsByClassName('output_canvas')[0];
+        const canvasCtx = canvasElement.getContext('2d');
+        const cursorEl = document.getElementById('ar-cursor');
+
+        function onResults(results) {
+            // Draw camera feed onto canvas
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0]; // Use first hand
+                
+                // Draw hand landmarks (Optional, for debugging/cool effect)
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFFF', lineWidth: 2});
+                drawLandmarks(canvasCtx, landmarks, {color: '#50C878', lineWidth: 1, radius: 2});
+
+                // Index finger tip (8) and Thumb tip (4)
+                const indexTip = landmarks[8];
+                const thumbTip = landmarks[4];
+
+                // Calculate screen position for cursor (mirror X since canvas is mirrored in CSS)
+                // Actually, if we draw image without flipping in context, and scaleX(-1) in CSS,
+                // the DOM overlays need X to be mapped standard. Let's test standard first.
+                // MediaPipe x is 0(left) to 1(right) of the original image. 
+                // Since our view is mirrored, screen X should be inverted.
+                state.cursorX = (1 - indexTip.x) * window.innerWidth;
+                state.cursorY = indexTip.y * window.innerHeight;
+
+                // Move visual cursor
+                cursorEl.style.left = `${state.cursorX}px`;
+                cursorEl.style.top = `${state.cursorY}px`;
+
+                // Calculate Pinch Distance
+                const dx = indexTip.x - thumbTip.x;
+                const dy = indexTip.y - thumbTip.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+
+                // Pinch Logic
+                if (dist < config.pinchThreshold && !state.isPinched && !state.pinchCooldown) {
+                    state.isPinched = true;
+                    cursorEl.classList.add('pinched');
+                    triggerClickAtCursor();
+                    
+                    // Cooldown to prevent multiple rapid clicks
+                    state.pinchCooldown = true;
+                    setTimeout(() => { state.pinchCooldown = false; }, 300);
+                } else if (dist > config.releaseThreshold && state.isPinched) {
+                    state.isPinched = false;
+                    cursorEl.classList.remove('pinched');
+                }
+                
+                // Visual hover effect simulation
+                simulateHover();
+            }
+            canvasCtx.restore();
+        }
+
+        function initMediaPipe() {
+            const hands = new Hands({locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }});
+            hands.setOptions({
+                maxNumHands: 1,
+                modelComplexity: 1,
+                minDetectionConfidence: 0.7,
+                minTrackingConfidence: 0.7
+            });
+            hands.onResults(onResults);
+
+            const camera = new Camera(videoElement, {
+                onFrame: async () => {
+                    await hands.send({image: videoElement});
+                },
+                width: 1280,
+                height: 720,
+                facingMode: 'user'
+            });
+            
+            // Adjust canvas resolution
+            const resizeCanvas = () => {
+                canvasElement.width = window.innerWidth;
+                canvasElement.height = window.innerHeight;
+            };
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            camera.start();
+        }
+
+        // --- Interaction Bridging (AR to DOM) ---
+        function triggerClickAtCursor() {
+            // Hide cursor temporarily to find element beneath it
+            cursorEl.style.display = 'none';
+            const element = document.elementFromPoint(state.cursorX, state.cursorY);
+            cursorEl.style.display = 'block';
+
+            if (element) {
+                // Find nearest .ar-clickable parent if element itself isn't
+                const clickable = element.closest('.ar-clickable');
+                if (clickable) {
+                    clickable.click();
+                }
+            }
+        }
+
+        function simulateHover() {
+            cursorEl.style.display = 'none';
+            const element = document.elementFromPoint(state.cursorX, state.cursorY);
+            cursorEl.style.display = 'block';
+
+            document.querySelectorAll('.ar-clickable').forEach(el => el.classList.remove('hovered'));
+            
+            if (element) {
+                const clickable = element.closest('.ar-clickable');
+                if (clickable) {
+                    clickable.classList.add('hovered');
+                }
+            }
+        }
+
+        // --- Minigame System ---
+        const games = {
+            loop: {
+                title: 'Loop Collector',
+                code: '<span class="keyword">for</span> i <span class="keyword">in</span> <span class="function">range</span>(10):<br>&nbsp;&nbsp;&nbsp;&nbsp;collect_orb()',
+                instruction: 'Pinch เพื่อเก็บลูกแก้วพลังงานให้ครบ 10 รอบ!',
+                total: 10,
+                init: initLoopGame
+            },
+            while: {
+                title: 'While Challenge',
+                code: '<span class="keyword">while</span> power < 100:<br>&nbsp;&nbsp;&nbsp;&nbsp;charge()',
+                instruction: 'Pinch กดปุ่มรัวๆ เพื่อชาร์จแบตเตอรี่จนกว่าจะถึง 100% (ทีละ 5%)',
+                total: 100,
+                init: initWhileGame
+            },
+            for: {
+                title: 'For Factory',
+                code: 'robots = [b1, b2, b3, b4, b5]<br><span class="keyword">for</span> bot <span class="keyword">in</span> robots:<br>&nbsp;&nbsp;&nbsp;&nbsp;build(bot)',
+                instruction: 'Pinch ที่หุ่นยนต์แต่ละตัวเพื่อประกอบร่างให้ครบ 5 ตัว',
+                total: 5,
+                init: initForGame
+            },
+            range: {
+                title: 'Range Challenge',
+                code: 'seq = <span class="function">list</span>(<span class="function">range</span>(2, 12, 2))<br><span class="comment text-gray-400"># Start=2, Stop=12, Step=2</span>',
+                instruction: 'Pinch เลือกตัวเลขตามลำดับให้ถูกต้อง',
+                total: 5,
+                init: initRangeGame
+            },
+            nested: {
+                title: 'Nested Matrix',
+                code: '<span class="keyword">for</span> row <span class="keyword">in</span> <span class="function">range</span>(2):<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">for</span> col <span class="keyword">in</span> <span class="function">range</span>(3):<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;clear_node(row, col)',
+                instruction: 'Pinch เลือกพิกัดในตารางให้ครบทุกช่อง (2 แถว x 3 คอลัมน์)',
+                total: 6,
+                init: initNestedGame
+            },
+            condition: {
+                title: 'Continue Catcher',
+                code: '<span class="keyword">for</span> data <span class="keyword">in</span> stream:<br>&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">if</span> data == <span class="string">"BUG"</span>:<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="keyword">continue</span><br>&nbsp;&nbsp;&nbsp;&nbsp;collect(data)',
+                instruction: 'Pinch เก็บเฉพาะ "ข้อมูล" (สีฟ้า) 8 ชิ้น ระวัง! ห้ามเก็บ "Bug" (สีแดง)',
+                total: 8,
+                init: initConditionGame
+            }
+        };
+
+        let currentGameState = {};
+
+        function startMission(missionKey) {
+            state.currentMission = missionKey;
+            state.missionStartTime = Date.now();
+            currentGameState = { count: 0, correct: 0, incorrect: 0, active: true };
+            
+            const gameData = games[missionKey];
+            document.getElementById('game-title').innerText = gameData.title;
+            document.getElementById('game-code').innerHTML = gameData.code;
+            document.getElementById('game-instruction').innerText = gameData.instruction;
+            
+            updateProgress(0, gameData.total);
+            document.getElementById('game-arena').innerHTML = ''; // Clear arena
+            
+            changeScreen('game');
+            gameData.init();
+        }
+
+        function finishMission() {
+            if (!currentGameState.active) return;
+            currentGameState.active = false;
+            playSound('success');
+            
+            // Calculate points
+            const timeTaken = (Date.now() - state.missionStartTime) / 1000;
+            let points = 100;
+            points -= (currentGameState.incorrect * 10);
+            if (points < 20) points = 20; // Minimum points
+            
+            updateScore(points);
+            
+            // Save local data
+            const missionData = {
+                mission: state.currentMission,
+                score: points,
+                correct: currentGameState.correct,
+                incorrect: currentGameState.incorrect,
+                playTime: timeTaken
+            };
+            state.playData.push(missionData);
+
+            // ส่งข้อมูลไป Google Apps Script แบบ Background
+            sendDataToGAS(missionData);
+
+            document.getElementById('game-arena').innerHTML = `
+                <div class="glass-panel p-6 text-center glowing">
+                    <h2 class="text-3xl font-bold text-mint mb-2">Mission Complete!</h2>
+                    <p class="text-white">+${points} Points</p>
+                    <button onclick="changeScreen('menu')" class="ar-clickable mt-4 bg-cyan text-black px-6 py-2 rounded-full font-bold">กลับเมนู</button>
+                </div>
+            `;
+        }
+
+        function updateProgress(current, total) {
+            const pct = Math.min(100, (current / total) * 100);
+            document.getElementById('progress-text').innerText = `Progress: ${Math.round(pct)}%`;
+            document.getElementById('progress-fill').style.width = `${pct}%`;
+        }
+
+        // --- Game 1: Loop Collector ---
+        function initLoopGame() {
+            const arena = document.getElementById('game-arena');
+            const total = games.loop.total;
+            
+            const spawnOrb = () => {
+                if (!currentGameState.active) return;
+                arena.innerHTML = ''; // Clear previous
+                
+                // Random position within arena limits
+                const x = Math.random() * 60 + 20; // 20% to 80%
+                const y = Math.random() * 60 + 20;
+                
+                const orb = document.createElement('div');
+                orb.className = 'ar-clickable absolute w-16 h-16 rounded-full glowing floating bg-gradient-to-br from-mint to-cyan flex items-center justify-center text-black font-bold text-xl cursor-pointer';
+                orb.style.left = `${x}%`;
+                orb.style.top = `${y}%`;
+                orb.innerHTML = '<i class="fa-solid fa-bolt"></i>';
+                
+                orb.onclick = () => {
+                    if (!currentGameState.active) return;
+                    playSound('collect');
+                    currentGameState.count++;
+                    currentGameState.correct++;
+                    updateProgress(currentGameState.count, total);
+                    
+                    if (currentGameState.count >= total) {
+                        finishMission();
+                    } else {
+                        spawnOrb();
+                    }
+                };
+                
+                arena.appendChild(orb);
+            };
+            
+            spawnOrb();
+        }
+
+        // --- Game 2: While Challenge ---
+        function initWhileGame() {
+            const arena = document.getElementById('game-arena');
+            const total = games.while.total;
+            currentGameState.count = 0; // Current Power
+            
+            arena.innerHTML = `
+                <div class="flex flex-col items-center">
+                    <div class="w-24 h-48 border-4 border-gray-600 rounded-lg relative overflow-hidden bg-black mb-6">
+                        <div id="battery-fill" class="absolute bottom-0 left-0 w-full bg-gradient-to-t from-red-500 via-yellow-500 to-emerald-500 transition-all duration-200" style="height: 0%;"></div>
+                        <div class="absolute inset-0 flex items-center justify-center text-white font-bold drop-shadow-md z-10" id="battery-text">0%</div>
+                    </div>
+                    <button id="charge-btn" class="ar-clickable w-32 h-32 rounded-full bg-cyan text-black font-bold text-xl shadow-[0_0_20px_rgba(0,255,255,0.6)] active:scale-95 transition flex items-center justify-center flex-col">
+                        <i class="fa-solid fa-bolt text-3xl mb-1"></i>
+                        <span>Charge</span>
+                    </button>
+                </div>
+            `;
+            
+            const chargeBtn = document.getElementById('charge-btn');
+            const fill = document.getElementById('battery-fill');
+            const text = document.getElementById('battery-text');
+            
+            chargeBtn.onclick = () => {
+                if (!currentGameState.active) return;
+                playSound('click');
+                currentGameState.count += 5; // +5 per click (เพิ่มจำนวนครั้งที่ต้องกดให้มากขึ้น)
+                currentGameState.correct++;
+                
+                if(currentGameState.count > 100) currentGameState.count = 100;
+                
+                fill.style.height = `${currentGameState.count}%`;
+                text.innerText = `${currentGameState.count}%`;
+                updateProgress(currentGameState.count, total);
+                
+                if (currentGameState.count >= total) {
+                    finishMission();
+                }
+            };
+        }
+
+        // --- Game 3: For Factory ---
+        function initForGame() {
+            const arena = document.getElementById('game-arena');
+            const total = games.for.total;
+            
+            let html = '<div class="flex flex-wrap justify-center gap-2 md:gap-4 max-w-lg">';
+            for(let i=0; i<total; i++) {
+                html += `
+                    <div id="bot-${i}" class="ar-clickable w-16 h-24 md:w-20 md:h-28 glass-panel flex flex-col items-center justify-center text-gray-500 grayscale transition-all duration-500" onclick="buildBot(${i})">
+                        <i class="fa-solid fa-robot text-3xl md:text-4xl mb-1"></i>
+                        <span class="text-[10px] md:text-xs">bot${i+1}</span>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            arena.innerHTML = html;
+        }
+
+        window.buildBot = function(index) {
+            if (!currentGameState.active) return;
+            const bot = document.getElementById(`bot-${index}`);
+            if (bot.classList.contains('grayscale')) {
+                playSound('collect');
+                bot.classList.remove('grayscale', 'text-gray-500');
+                bot.classList.add('text-emerald', 'glowing');
+                
+                currentGameState.count++;
+                currentGameState.correct++;
+                updateProgress(currentGameState.count, games.for.total);
+                
+                if (currentGameState.count >= games.for.total) {
+                    setTimeout(finishMission, 500);
+                }
+            }
+        }
+
+        // --- Game 4: Range Challenge ---
+        function initRangeGame() {
+            const arena = document.getElementById('game-arena');
+            // range(2, 12, 2) => 2, 4, 6, 8, 10
+            const sequence = [2, 4, 6, 8, 10];
+            // Options include correct answers and some distractor numbers
+            const options = [2, 4, 6, 8, 10, 5, 7, 9];
+            
+            // Shuffle options for display
+            options.sort(() => Math.random() - 0.5);
+            
+            currentGameState.expectedIndex = 0;
+            
+            let html = '<div class="flex flex-wrap justify-center gap-4 max-w-lg">';
+            options.forEach(num => {
+                html += `
+                    <div id="num-${num}" class="ar-clickable w-20 h-20 rounded-full border-2 border-softYellow text-softYellow flex items-center justify-center text-3xl font-bold bg-black/50 hover:bg-softYellow hover:text-black transition" onclick="selectNumber(${num})">
+                        ${num}
+                    </div>
+                `;
+            });
+            html += '</div>';
+            arena.innerHTML = html;
+            
+            window.selectNumber = function(num) {
+                if (!currentGameState.active) return;
+                const el = document.getElementById(`num-${num}`);
+                const expected = sequence[currentGameState.expectedIndex];
+                
+                if (num === expected) {
+                    playSound('collect');
+                    el.classList.remove('border-softYellow', 'text-softYellow', 'hover:bg-softYellow');
+                    el.classList.add('bg-emerald', 'text-black', 'border-emerald');
+                    el.style.pointerEvents = 'none';
+                    
+                    currentGameState.expectedIndex++;
+                    currentGameState.correct++;
+                    updateProgress(currentGameState.expectedIndex, sequence.length);
+                    
+                    if (currentGameState.expectedIndex >= sequence.length) {
+                        setTimeout(finishMission, 500);
+                    }
+                } else {
+                    playSound('error');
+                    currentGameState.incorrect++;
+                    el.classList.add('bg-red-500');
+                    setTimeout(() => {
+                        if(el.classList.contains('bg-red-500')) {
+                            el.classList.remove('bg-red-500');
+                        }
+                    }, 300);
+                }
+            };
+        }
+
+        // --- Game 5: Nested Matrix ---
+        function initNestedGame() {
+            const arena = document.getElementById('game-arena');
+            const total = games.nested.total;
+            currentGameState.count = 0;
+            
+            let html = '<div class="grid grid-cols-3 gap-4 md:gap-8 max-w-lg">';
+            for(let i=0; i<total; i++) {
+                // คำนวณพิกัดจำลอง
+                const row = Math.floor(i / 3);
+                const col = i % 3;
+                html += `
+                    <div id="node-${i}" class="ar-clickable w-20 h-20 rounded-lg border-2 border-purple-400 flex flex-col items-center justify-center text-purple-400 hover:bg-purple-400 hover:text-white transition-all cursor-pointer bg-black/50" onclick="collectNode(${i})">
+                        <i class="fa-solid fa-cube text-2xl mb-1"></i>
+                        <span class="text-[10px]">[${row}, ${col}]</span>
+                    </div>
+                `;
+            }
+            html += '</div>';
+            arena.innerHTML = html;
+            
+            window.collectNode = function(index) {
+                if (!currentGameState.active) return;
+                const node = document.getElementById(`node-${index}`);
+                if (!node.classList.contains('opacity-0')) {
+                    playSound('collect');
+                    node.classList.add('opacity-0', 'scale-50'); 
+                    node.style.pointerEvents = 'none';
+                    
+                    currentGameState.count++;
+                    currentGameState.correct++;
+                    updateProgress(currentGameState.count, total);
+                    if (currentGameState.count >= total) {
+                        setTimeout(finishMission, 500);
+                    }
+                }
+            }
+        }
+
+        // --- Game 6: Condition (Break/Continue) ---
+        function initConditionGame() {
+            const arena = document.getElementById('game-arena');
+            const total = games.condition.total;
+            currentGameState.count = 0;
+            let spawnTimer = null;
+            
+            const spawnItem = () => {
+                if (!currentGameState.active) return;
+                arena.innerHTML = ''; 
+                clearTimeout(spawnTimer);
+                
+                // โอกาสเกิด Bug 30%
+                const isBug = Math.random() < 0.3;
+                
+                const x = Math.random() * 60 + 20; 
+                const y = Math.random() * 60 + 20;
+                
+                const item = document.createElement('div');
+                item.className = 'ar-clickable absolute w-20 h-20 rounded-full glowing floating flex items-center justify-center text-white font-bold text-4xl cursor-pointer transition-transform hover:scale-110';
+                item.style.left = `${x}%`;
+                item.style.top = `${y}%`;
+                
+                if (isBug) {
+                    item.classList.add('bg-red-500', 'shadow-[0_0_20px_red]');
+                    item.innerHTML = '<i class="fa-solid fa-bug"></i>';
+                } else {
+                    item.classList.add('bg-blue-500', 'shadow-[0_0_20px_blue]');
+                    item.innerHTML = '<i class="fa-solid fa-file-code"></i>';
+                }
+                
+                item.onclick = () => {
+                    if (!currentGameState.active) return;
+                    if (isBug) {
+                        playSound('error');
+                        currentGameState.incorrect++;
+                        item.classList.add('scale-150', 'opacity-0');
+                        spawnTimer = setTimeout(spawnItem, 200);
+                    } else {
+                        playSound('collect');
+                        currentGameState.count++;
+                        currentGameState.correct++;
+                        updateProgress(currentGameState.count, total);
+                        
+                        if (currentGameState.count >= total) {
+                            finishMission();
+                        } else {
+                            item.classList.add('scale-0');
+                            spawnTimer = setTimeout(spawnItem, 200);
+                        }
+                    }
+                };
+                
+                arena.appendChild(item);
+                
+                // ถ้ายืนรอเฉยๆ ไม่ยอมจิ้ม Bug ให้ Bug หายไปเอง แล้วเกิดใหม่
+                if(isBug) {
+                     spawnTimer = setTimeout(() => {
+                         if(currentGameState.active) spawnItem();
+                     }, 1500);
+                }
+            };
+            
+            spawnItem();
+        }
+
+        // Initialize final screen values when shown
+        const originalChangeScreen = changeScreen;
+        changeScreen = function(screenId) {
+            originalChangeScreen(screenId);
+            if (screenId === 'summary') {
+                document.getElementById('summary-score').innerText = state.score;
+            }
+        };
+
+        // --- Google Apps Script Connection ---
+        function sendDataToGAS(missionData) {
+            if (!APPSCRIPT_URL || APPSCRIPT_URL.trim() === '') {
+                console.log("ยังไม่ได้ตั้งค่า APPSCRIPT_URL ระบบจะข้ามการส่งข้อมูลไป Google Sheet");
+                return;
+            }
+            
+            const payload = {
+                nickname: state.nickname,
+                mission: missionData.mission,
+                score: missionData.score,
+                correct: missionData.correct,
+                incorrect: missionData.incorrect,
+                playTime: missionData.playTime,
+                timestamp: new Date().toISOString()
+            };
+
+            // ใช้ POST และกำหนด Content-Type เป็น text/plain เพื่อแก้ปัญหา CORS Block จาก Browser
+            fetch(APPSCRIPT_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'text/plain;charset=utf-8', 
+                },
+                body: JSON.stringify(payload)
+            })
+            .then(response => console.log('ส่งข้อมูลไป Sheet สำเร็จ:', missionData.mission))
+            .catch(error => console.error('เกิดข้อผิดพลาดในการส่งข้อมูล:', error));
+        }
+
+    </script>
+</body>
+</html>
