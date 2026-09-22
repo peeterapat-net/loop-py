@@ -23,7 +23,6 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;600;700&family=Fira+Code:wght@500&display=swap" rel="stylesheet">
 
-    <!-- Tailwind Configuration for Custom Colors -->
     <script>
         tailwind.config = {
             theme: {
@@ -42,7 +41,7 @@
                 }
             }
         }
-    </>
+    </script>
 
     <style>
         body, html {
@@ -104,7 +103,7 @@
             transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 100;
-            transition: width 0.1s, height 0.1s, background-color 0.1s;
+            transition: width 0.1s, height 0.1s, background-color 0.1s, border-color 0.1s;
             box-shadow: 0 0 15px #00FFFF, inset 0 0 10px #00FFFF;
         }
 
@@ -304,7 +303,7 @@
 
         <!-- SCREEN: Summary -->
         <div id="screen-summary" class="hidden-screen flex-1 flex flex-col items-center justify-center pointer-events-auto">
-             <div class="glass-panel p-8 max-w-2xl w-full">
+             <div class="glass-panel p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <h2 class="text-3xl font-bold text-mint mb-2 text-center"><i class="fa-solid fa-graduation-cap"></i> สรุปผลการเรียนรู้</h2>
                 <p class="text-center text-cyan mb-6">เก่งมาก! คุณทำภารกิจและเข้าใจ Loop ใน Python แล้ว</p>
                 
@@ -370,9 +369,12 @@
 
     </div>
 
-    <>
+    <script>
         // --- State Management ---
-        // TODO: วาง URL ที่ได้จากการ Deploy Google Apps Script ไว้ในเครื่องหมายคำพูดด้านล่างนี้
+        
+        // ⚠️ สำคัญมาก: กรุณาวาง URL ของคุณระหว่างเครื่องหมายคำพูดเดี่ยว ('') เท่านั้น
+        // ตัวอย่างที่ถูกต้อง: const APPSCRIPT_URL = 'https://script.google.com/macros/s/xxxx/exec';
+        // หากไม่มี URL ให้ปล่อยเป็นค่าว่างไว้แบบนี้: const APPSCRIPT_URL = '';
         const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAF5qCn6HmAmN8vsDmlccHBlYYo__U-9ngQ0kg5Gy3spZ-ZWbqfW99Bqch9bx0vedK8g/exec'; 
 
         const state = {
@@ -418,7 +420,6 @@
 
         function playSound(type) {
             if(Tone.context.state !== 'running') return;
-            const now = Tone.now();
             switch(type) {
                 case 'click':
                     state.synths.click.triggerAttackRelease("C5", "8n");
@@ -461,10 +462,19 @@
 
         // --- Initialization ---
         async function startGameApp() {
-            const name = document.getElementById('input-name').value.trim();
+            const inputEl = document.getElementById('input-name');
+            const name = inputEl.value.trim();
             
+            // กรณีไม่ได้กรอกชื่อ ให้แจ้งเตือนด้วย UI แบบกระพริบสีแดงแทนการใช้ alert()
             if (!name) {
-                alert("กรุณากรอกชื่อผู้เล่นก่อนเริ่มเล่นเกมครับ");
+                inputEl.classList.add('border-red-500', 'shadow-[0_0_15px_rgba(255,0,0,0.6)]');
+                inputEl.placeholder = 'กรุณาใส่ชื่อของคุณ!';
+                
+                // คืนค่ารูปแบบเดิมหลังจาก 2 วินาที
+                setTimeout(() => {
+                    inputEl.classList.remove('border-red-500', 'shadow-[0_0_15px_rgba(255,0,0,0.6)]');
+                    inputEl.placeholder = 'ใส่ชื่อของคุณ';
+                }, 2000);
                 return;
             }
 
@@ -497,7 +507,7 @@
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
                 const landmarks = results.multiHandLandmarks[0]; // Use first hand
                 
-                // Draw hand landmarks (Optional, for debugging/cool effect)
+                // Draw hand landmarks
                 drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFFF', lineWidth: 2});
                 drawLandmarks(canvasCtx, landmarks, {color: '#50C878', lineWidth: 1, radius: 2});
 
@@ -505,11 +515,7 @@
                 const indexTip = landmarks[8];
                 const thumbTip = landmarks[4];
 
-                // Calculate screen position for cursor (mirror X since canvas is mirrored in CSS)
-                // Actually, if we draw image without flipping in context, and scaleX(-1) in CSS,
-                // the DOM overlays need X to be mapped standard. Let's test standard first.
-                // MediaPipe x is 0(left) to 1(right) of the original image. 
-                // Since our view is mirrored, screen X should be inverted.
+                // Calculate screen position for cursor 
                 state.cursorX = (1 - indexTip.x) * window.innerWidth;
                 state.cursorY = indexTip.y * window.innerHeight;
 
@@ -609,29 +615,29 @@
         const games = {
             loop: {
                 title: 'Loop Collector',
-                code: '<span class="keyword">for</span> i <span class="keyword">in</span> <span class="function">range</span>(10):<br>&nbsp;&nbsp;&nbsp;&nbsp;collect_orb()',
-                instruction: 'Pinch เพื่อเก็บลูกแก้วพลังงานให้ครบ 10 รอบ!',
-                total: 10,
+                code: '<span class="keyword">for</span> i <span class="keyword">in</span> <span class="function">range</span>(15):<br>&nbsp;&nbsp;&nbsp;&nbsp;collect_orb()',
+                instruction: 'Pinch เพื่อเก็บลูกแก้วพลังงานให้ครบ 15 รอบ!',
+                total: 15,
                 init: initLoopGame
             },
             while: {
                 title: 'While Challenge',
                 code: '<span class="keyword">while</span> power < 100:<br>&nbsp;&nbsp;&nbsp;&nbsp;charge()',
-                instruction: 'Pinch กดปุ่มรัวๆ เพื่อชาร์จแบตเตอรี่จนกว่าจะถึง 100% (ทีละ 5%)',
+                instruction: 'Pinch กดปุ่มรัวๆ เพื่อชาร์จแบตเตอรี่จนกว่าจะถึง 100%',
                 total: 100,
                 init: initWhileGame
             },
             for: {
                 title: 'For Factory',
-                code: 'robots = [b1, b2, b3, b4, b5]<br><span class="keyword">for</span> bot <span class="keyword">in</span> robots:<br>&nbsp;&nbsp;&nbsp;&nbsp;build(bot)',
-                instruction: 'Pinch ที่หุ่นยนต์แต่ละตัวเพื่อประกอบร่างให้ครบ 5 ตัว',
-                total: 5,
+                code: 'robots = [b1, b2, b3, b4, b5, b6]<br><span class="keyword">for</span> bot <span class="keyword">in</span> robots:<br>&nbsp;&nbsp;&nbsp;&nbsp;build(bot)',
+                instruction: 'Pinch ที่หุ่นยนต์แต่ละตัวเพื่อประกอบร่างให้ครบ 6 ตัว',
+                total: 6,
                 init: initForGame
             },
             range: {
                 title: 'Range Challenge',
                 code: 'seq = <span class="function">list</span>(<span class="function">range</span>(2, 12, 2))<br><span class="comment text-gray-400"># Start=2, Stop=12, Step=2</span>',
-                instruction: 'Pinch เลือกตัวเลขตามลำดับให้ถูกต้อง',
+                instruction: 'Pinch เลือกตัวเลขตามลำดับให้ถูกต้อง (2, 4, 6, 8, 10)',
                 total: 5,
                 init: initRangeGame
             },
@@ -676,9 +682,14 @@
             playSound('success');
             
             // Calculate points
-            const timeTaken = (Date.now() - state.missionStartTime) / 1000;
+            const timeTaken = Math.floor((Date.now() - state.missionStartTime) / 1000);
             let points = 100;
             points -= (currentGameState.incorrect * 10);
+            
+            // โบนัสทำเวลาดี (น้อยกว่า 20 วินาที ได้โบนัสเพิ่ม)
+            if(timeTaken < 20) {
+                points += (20 - timeTaken) * 2; 
+            }
             if (points < 20) points = 20; // Minimum points
             
             updateScore(points);
@@ -700,7 +711,8 @@
                 <div class="glass-panel p-6 text-center glowing">
                     <h2 class="text-3xl font-bold text-mint mb-2">Mission Complete!</h2>
                     <p class="text-white">+${points} Points</p>
-                    <button onclick="changeScreen('menu')" class="ar-clickable mt-4 bg-cyan text-black px-6 py-2 rounded-full font-bold">กลับเมนู</button>
+                    <p class="text-gray-400 text-sm mt-1">เวลาที่ใช้: ${timeTaken} วินาที</p>
+                    <button onclick="changeScreen('menu')" class="ar-clickable mt-4 bg-cyan text-black px-6 py-2 rounded-full font-bold shadow-lg shadow-cyan/50 hover:scale-105 transition">กลับเมนู</button>
                 </div>
             `;
         }
@@ -718,10 +730,10 @@
             
             const spawnOrb = () => {
                 if (!currentGameState.active) return;
-                arena.innerHTML = ''; // Clear previous
+                arena.innerHTML = ''; 
                 
                 // Random position within arena limits
-                const x = Math.random() * 60 + 20; // 20% to 80%
+                const x = Math.random() * 60 + 20; 
                 const y = Math.random() * 60 + 20;
                 
                 const orb = document.createElement('div');
@@ -776,7 +788,7 @@
             chargeBtn.onclick = () => {
                 if (!currentGameState.active) return;
                 playSound('click');
-                currentGameState.count += 5; // +5 per click (เพิ่มจำนวนครั้งที่ต้องกดให้มากขึ้น)
+                currentGameState.count += 5; // ชาร์จทีละ 5% จะต้องกด 20 ครั้ง
                 currentGameState.correct++;
                 
                 if(currentGameState.count > 100) currentGameState.count = 100;
@@ -830,12 +842,10 @@
         // --- Game 4: Range Challenge ---
         function initRangeGame() {
             const arena = document.getElementById('game-arena');
-            // range(2, 12, 2) => 2, 4, 6, 8, 10
             const sequence = [2, 4, 6, 8, 10];
-            // Options include correct answers and some distractor numbers
             const options = [2, 4, 6, 8, 10, 5, 7, 9];
             
-            // Shuffle options for display
+            // สลับตำแหน่งปุ่มตัวเลข
             options.sort(() => Math.random() - 0.5);
             
             currentGameState.expectedIndex = 0;
@@ -872,12 +882,12 @@
                 } else {
                     playSound('error');
                     currentGameState.incorrect++;
-                    el.classList.add('bg-red-500');
+                    el.classList.add('bg-red-500', 'text-white', 'border-red-500');
                     setTimeout(() => {
                         if(el.classList.contains('bg-red-500')) {
-                            el.classList.remove('bg-red-500');
+                            el.classList.remove('bg-red-500', 'text-white', 'border-red-500');
                         }
-                    }, 300);
+                    }, 400);
                 }
             };
         }
@@ -890,7 +900,7 @@
             
             let html = '<div class="grid grid-cols-3 gap-4 md:gap-8 max-w-lg">';
             for(let i=0; i<total; i++) {
-                // คำนวณพิกัดจำลอง
+                // คำนวณพิกัดสำหรับแสดงผลให้ผู้เล่นดู
                 const row = Math.floor(i / 3);
                 const col = i % 3;
                 html += `
@@ -933,7 +943,7 @@
                 arena.innerHTML = ''; 
                 clearTimeout(spawnTimer);
                 
-                // โอกาสเกิด Bug 30%
+                // สุ่มสร้าง Bug 30% หรือ ข้อมูลปกติ 70%
                 const isBug = Math.random() < 0.3;
                 
                 const x = Math.random() * 60 + 20; 
@@ -958,7 +968,7 @@
                         playSound('error');
                         currentGameState.incorrect++;
                         item.classList.add('scale-150', 'opacity-0');
-                        spawnTimer = setTimeout(spawnItem, 200);
+                        spawnTimer = setTimeout(spawnItem, 200); // เกิดใหม่เร็วขึ้น
                     } else {
                         playSound('collect');
                         currentGameState.count++;
@@ -1013,7 +1023,7 @@
                 timestamp: new Date().toISOString()
             };
 
-            // ใช้ POST และกำหนด Content-Type เป็น text/plain เพื่อแก้ปัญหา CORS Block จาก Browser
+            // ใช้ POST และกำหนด Content-Type เป็น text/plain เพื่อหลีกเลี่ยงปัญหา CORS
             fetch(APPSCRIPT_URL, {
                 method: 'POST',
                 headers: {
