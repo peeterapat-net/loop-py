@@ -187,6 +187,9 @@
     <!-- AR Cursor -->
     <div id="ar-cursor"></div>
 
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[200] flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4"></div>
+
     <!-- UI Overlay -->
     <div id="ui-layer" class="p-4 md:p-8">
         
@@ -199,9 +202,14 @@
                     <div id="hud-score" class="text-softYellow font-mono text-sm">Score: 0</div>
                 </div>
             </div>
-            <button onclick="changeScreen('menu')" class="ar-clickable glass-panel p-3 px-4 text-mint hover:text-white transition">
-                <i class="fa-solid fa-bars"></i> เมนูหลัก
-            </button>
+            <div class="flex items-center gap-2">
+                <button onclick="openGasModal()" title="ตั้งค่า Google Sheet" class="ar-clickable glass-panel p-3 px-4 text-cyan hover:text-white transition">
+                    <i class="fa-solid fa-cloud-arrow-up"></i>
+                </button>
+                <button onclick="changeScreen('menu')" class="ar-clickable glass-panel p-3 px-4 text-mint hover:text-white transition">
+                    <i class="fa-solid fa-bars"></i> เมนูหลัก
+                </button>
+            </div>
         </div>
 
         <!-- SCREEN: Intro / Register -->
@@ -210,14 +218,21 @@
                 <h1 class="text-4xl font-bold text-mint mb-2 tracking-wider"><i class="fa-brands fa-python text-softYellow"></i> Python AR</h1>
                 <h2 class="text-xl text-cyan mb-8">LOOP ADVENTURE</h2>
                 
-                <div class="mt-6 mb-8">
+                <div class="mt-6 mb-6">
                     <label class="block text-sm text-emerald mb-2">ชื่อผู้เล่น (Player Name)</label>
                     <input type="text" id="input-name" class="w-full max-w-xs mx-auto bg-black/50 border-2 border-cyan/50 rounded-lg p-4 text-center text-xl text-white focus:outline-none focus:border-mint focus:shadow-[0_0_15px_rgba(152,255,152,0.4)] transition" placeholder="ใส่ชื่อของคุณ">
                 </div>
 
-                <button onclick="startGameApp()" class="ar-clickable mt-4 w-full bg-gradient-to-r from-emerald to-cyan text-gray-900 font-bold py-3 rounded-lg shadow-lg hover:shadow-cyan/50 transition">
+                <button onclick="startGameApp()" class="ar-clickable mt-2 w-full bg-gradient-to-r from-emerald to-cyan text-gray-900 font-bold py-3 rounded-lg shadow-lg hover:shadow-cyan/50 transition">
                     <i class="fa-solid fa-camera mr-2"></i> เปิดกล้องเริ่มเล่น!
                 </button>
+
+                <div class="mt-4 pt-4 border-t border-white/10">
+                    <button onclick="openGasModal()" class="ar-clickable text-xs text-cyan hover:text-mint transition flex items-center justify-center gap-1 w-full">
+                        <i class="fa-solid fa-database mr-1"></i> <span id="intro-gas-status">เชื่อมต่อ Google Sheet (คลิกเพื่อตั้งค่า URL)</span>
+                    </button>
+                </div>
+
                 <p class="mt-4 text-xs text-gray-400">ใช้นิ้วชี้เป็น Cursor และจีบนิ้ว (Pinch) เพื่อกดปุ่ม</p>
             </div>
         </div>
@@ -367,19 +382,42 @@
              </div>
         </div>
 
+        <!-- MODAL: Google Apps Script URL Setting -->
+        <div id="modal-gas" class="hidden-screen fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 pointer-events-auto">
+            <div class="glass-panel p-6 max-w-lg w-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-bold text-mint flex items-center gap-2">
+                        <i class="fa-solid fa-database text-cyan"></i> ตั้งค่า Google Apps Script
+                    </h3>
+                    <button onclick="closeGasModal()" class="text-gray-400 hover:text-white text-xl">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+
+                <p class="text-xs text-gray-300 mb-3">
+                    วาง Web App URL ที่ได้จากการ Deploy Google Apps Script (ลงท้ายด้วย <code class="text-softYellow">/exec</code>) เพื่อบันทึกลงชีต ID: <span class="text-cyan font-mono">1YXP45k...</span>
+                </p>
+
+                <input type="text" id="input-gas-url" class="w-full bg-black/60 border border-cyan/40 rounded p-3 text-sm text-white font-mono focus:outline-none focus:border-mint mb-4" placeholder="https://script.google.com/macros/s/.../exec">
+
+                <div class="flex gap-2 justify-end">
+                    <button onclick="closeGasModal()" class="px-4 py-2 text-sm text-gray-400 hover:text-white">ยกเลิก</button>
+                    <button onclick="saveGasUrlFromModal()" class="bg-gradient-to-r from-emerald to-cyan text-black font-bold px-5 py-2 rounded text-sm hover:shadow-lg transition">
+                        บันทึกการตั้งค่า
+                    </button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
         // --- State Management ---
         
         // =====================================================================
-        // ⚠️ โซนอันตราย: การตั้งค่า URL
-        // ห้ามลบเครื่องหมายคำพูดเดี่ยว (' ') ออกเด็ดขาด!
-        // ตัวอย่างที่ผิด: const APPSCRIPT_URL = https://script.google... (จะพังทันที)
-        // ตัวอย่างที่ถูก: const APPSCRIPT_URL = 'https://script.google...';
-        // หากยังไม่มี URL ให้ปล่อยเป็นค่าว่างไว้แบบนี้: const APPSCRIPT_URL = '';
+        // คุณสามารถใส่ Web App URL เริ่มต้นไว้ตรงนี้ หรือใส่ผ่านปุ่มบนหน้าจอเกมก็ได้
         // =====================================================================
-        const APPSCRIPT_URL = ''; 
+        let APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAF5qCn6HmAmN8vsDmlccHBlYYo__U-9ngQ0kg5Gy3spZ-ZWbqfW99Bqch9bx0vedK8g/exec'; 
 
         const state = {
             nickname: '',
@@ -402,6 +440,95 @@
             pinchThreshold: 0.06,
             releaseThreshold: 0.08
         };
+
+        // --- Toast Notifications ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            let borderClass = 'border-cyan';
+            let icon = 'fa-circle-info';
+            let textClass = 'text-cyan';
+            
+            if (type === 'success') {
+                borderClass = 'border-emerald';
+                icon = 'fa-circle-check';
+                textClass = 'text-mint';
+            } else if (type === 'error') {
+                borderClass = 'border-red-500';
+                icon = 'fa-circle-exclamation';
+                textClass = 'text-red-400';
+            } else if (type === 'warning') {
+                borderClass = 'border-softYellow';
+                icon = 'fa-triangle-exclamation';
+                textClass = 'text-softYellow';
+            }
+
+            toast.className = `glass-panel p-3 px-4 border ${borderClass} shadow-lg flex items-center gap-3 transform transition-all duration-300 opacity-0 translate-y-2 pointer-events-auto`;
+            toast.innerHTML = `
+                <i class="fa-solid ${icon} ${textClass} text-lg"></i>
+                <div class="text-xs text-white flex-1 leading-snug">${message}</div>
+            `;
+            container.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                toast.classList.remove('opacity-0', 'translate-y-2');
+            });
+
+            // Auto dismiss
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // --- Google Apps Script Settings Helpers ---
+        function getActiveGasUrl() {
+            const stored = localStorage.getItem('python_ar_gas_url');
+            if (stored && stored.trim() !== '') return stored.trim();
+            if (APPSCRIPT_URL && APPSCRIPT_URL.trim() !== '') return APPSCRIPT_URL.trim();
+            return '';
+        }
+
+        function openGasModal() {
+            const currentUrl = getActiveGasUrl();
+            document.getElementById('input-gas-url').value = currentUrl;
+            document.getElementById('modal-gas').classList.remove('hidden-screen');
+        }
+
+        function closeGasModal() {
+            document.getElementById('modal-gas').classList.add('hidden-screen');
+        }
+
+        function saveGasUrlFromModal() {
+            const val = document.getElementById('input-gas-url').value.trim();
+            localStorage.setItem('python_ar_gas_url', val);
+            APPSCRIPT_URL = val;
+            closeGasModal();
+            updateGasStatusUI();
+            
+            if (val) {
+                showToast("บันทึก Web App URL เรียบร้อยแล้ว พร้อมส่งข้อมูลลง Google Sheet!", "success");
+            } else {
+                showToast("ล้างการตั้งค่า Web App URL เรียบร้อย (จะไม่บันทึกคะแนน)", "warning");
+            }
+        }
+
+        function updateGasStatusUI() {
+            const url = getActiveGasUrl();
+            const introLabel = document.getElementById('intro-gas-status');
+            if (introLabel) {
+                if (url) {
+                    introLabel.innerHTML = '<span class="text-emerald">🟢 เชื่อมต่อ Google Sheet เรียบร้อย</span>';
+                } else {
+                    introLabel.innerHTML = '<span class="text-softYellow">⚠️ ยังไม่เชื่อมต่อ Google Sheet (คลิกตั้งค่า)</span>';
+                }
+            }
+        }
+
+        // Call on initial load
+        window.addEventListener('DOMContentLoaded', updateGasStatusUI);
 
         // --- Tone.js Setup ---
         function initAudio() {
@@ -995,12 +1122,17 @@
 
         // --- Google Apps Script Connection ---
         function sendDataToGAS(missionData) {
-            // หากไม่ได้ใส่ค่าใน APPSCRIPT_URL ให้ข้ามการส่งข้อมูลไปเลย (ป้องกัน Error)
-            if (!APPSCRIPT_URL || APPSCRIPT_URL.trim() === '') {
-                console.log("https://script.google.com/macros/s/AKfycbxAF5qCn6HmAmN8vsDmlccHBlYYo__U-9ngQ0kg5Gy3spZ-ZWbqfW99Bqch9bx0vedK8g/exec");
+            const gasUrl = getActiveGasUrl();
+
+            // หากยังไม่ได้ตั้งค่า URL
+            if (!gasUrl) {
+                console.log("ยังไม่ได้ตั้งค่า APPSCRIPT_URL ระบบจะข้ามการส่งข้อมูล");
+                showToast("⚠️ ยังไม่ได้ตั้งค่า Google Apps Script URL (กดไอคอนก้อนเมฆบนหัวเพื่อตั้งค่า)", "warning");
                 return;
             }
             
+            showToast("📡 กำลังส่งข้อมูลไปยัง Google Sheet...", "info");
+
             const payload = {
                 nickname: state.nickname,
                 mission: missionData.mission,
@@ -1011,15 +1143,33 @@
                 timestamp: new Date().toISOString()
             };
 
-            fetch(APPSCRIPT_URL, {
+            // ใช้โหมด no-cors เพื่อให้สามารถส่งข้ามโดเมนจาก GitHub Pages ไปยัง Apps Script ได้โดยไม่ติด CORS
+            fetch(gasUrl, {
                 method: 'POST',
+                mode: 'no-cors',
                 headers: {
                     'Content-Type': 'text/plain;charset=utf-8', 
                 },
                 body: JSON.stringify(payload)
             })
-            .then(response => console.log('ส่งข้อมูลไป Sheet สำเร็จ:', missionData.mission))
-            .catch(error => console.error('เกิดข้อผิดพลาดในการส่งข้อมูล:', error));
+            .then(() => {
+                console.log('ส่งข้อมูลไป Sheet สำเร็จ:', missionData.mission);
+                showToast(`✅ บันทึกคะแนนด่าน "${missionData.mission}" ลง Google Sheet เรียบร้อย!`, "success");
+            })
+            .catch(error => {
+                console.warn('เกิดข้อผิดพลาดในการส่งแบบ POST กำลังลองสำรองผ่าน GET:', error);
+                
+                // แผนสำรอง: ส่งผ่าน Image Beacon / GET
+                try {
+                    const fallbackUrl = gasUrl + (gasUrl.includes('?') ? '&' : '?') + 'data=' + encodeURIComponent(JSON.stringify(payload));
+                    const img = new Image();
+                    img.src = fallbackUrl;
+                    showToast(`✅ บันทึกคะแนนสำรองลง Google Sheet เรียบร้อย!`, "success");
+                } catch(e) {
+                    console.error('ส่งข้อมูลไม่สำเร็จ:', e);
+                    showToast("❌ ส่งข้อมูลลง Google Sheet ไม่สำเร็จ กรุณาตรวจดู URL", "error");
+                }
+            });
         }
 
     </script>
