@@ -372,15 +372,19 @@
     <script>
         // --- State Management ---
         
-        // ⚠️ สำคัญมาก: กรุณาวาง URL ของคุณระหว่างเครื่องหมายคำพูดเดี่ยว ('') เท่านั้น
-        // ตัวอย่างที่ถูกต้อง: const APPSCRIPT_URL = 'https://script.google.com/macros/s/xxxx/exec';
-        // หากไม่มี URL ให้ปล่อยเป็นค่าว่างไว้แบบนี้: const APPSCRIPT_URL = '';
-        const APPSCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxAF5qCn6HmAmN8vsDmlccHBlYYo__U-9ngQ0kg5Gy3spZ-ZWbqfW99Bqch9bx0vedK8g/exec'; 
+        // =====================================================================
+        // ⚠️ โซนอันตราย: การตั้งค่า URL
+        // ห้ามลบเครื่องหมายคำพูดเดี่ยว (' ') ออกเด็ดขาด!
+        // ตัวอย่างที่ผิด: const APPSCRIPT_URL = https://script.google... (จะพังทันที)
+        // ตัวอย่างที่ถูก: const APPSCRIPT_URL = 'https://script.google...';
+        // หากยังไม่มี URL ให้ปล่อยเป็นค่าว่างไว้แบบนี้: const APPSCRIPT_URL = '';
+        // =====================================================================
+        const APPSCRIPT_URL = ''; 
 
         const state = {
             nickname: '',
             score: 0,
-            playData: [], // Store mission stats
+            playData: [], 
             currentMission: null,
             missionStartTime: 0,
             
@@ -465,12 +469,11 @@
             const inputEl = document.getElementById('input-name');
             const name = inputEl.value.trim();
             
-            // กรณีไม่ได้กรอกชื่อ ให้แจ้งเตือนด้วย UI แบบกระพริบสีแดงแทนการใช้ alert()
+            // กรณีไม่ได้กรอกชื่อ ให้แจ้งเตือนด้วย UI แบบกระพริบสีแดง
             if (!name) {
                 inputEl.classList.add('border-red-500', 'shadow-[0_0_15px_rgba(255,0,0,0.6)]');
                 inputEl.placeholder = 'กรุณาใส่ชื่อของคุณ!';
                 
-                // คืนค่ารูปแบบเดิมหลังจาก 2 วินาที
                 setTimeout(() => {
                     inputEl.classList.remove('border-red-500', 'shadow-[0_0_15px_rgba(255,0,0,0.6)]');
                     inputEl.placeholder = 'ใส่ชื่อของคุณ';
@@ -481,7 +484,7 @@
             state.nickname = name;
             document.getElementById('hud-name').innerText = name;
 
-            // Init Audio context on user gesture
+            // Init Audio
             await Tone.start();
             initAudio();
 
@@ -499,13 +502,13 @@
         const cursorEl = document.getElementById('ar-cursor');
 
         function onResults(results) {
-            // Draw camera feed onto canvas
+            // Draw camera feed
             canvasCtx.save();
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
             canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
             
             if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
-                const landmarks = results.multiHandLandmarks[0]; // Use first hand
+                const landmarks = results.multiHandLandmarks[0]; 
                 
                 // Draw hand landmarks
                 drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FFFF', lineWidth: 2});
@@ -534,7 +537,6 @@
                     cursorEl.classList.add('pinched');
                     triggerClickAtCursor();
                     
-                    // Cooldown to prevent multiple rapid clicks
                     state.pinchCooldown = true;
                     setTimeout(() => { state.pinchCooldown = false; }, 300);
                 } else if (dist > config.releaseThreshold && state.isPinched) {
@@ -542,7 +544,6 @@
                     cursorEl.classList.remove('pinched');
                 }
                 
-                // Visual hover effect simulation
                 simulateHover();
             }
             canvasCtx.restore();
@@ -569,7 +570,6 @@
                 facingMode: 'user'
             });
             
-            // Adjust canvas resolution
             const resizeCanvas = () => {
                 canvasElement.width = window.innerWidth;
                 canvasElement.height = window.innerHeight;
@@ -582,13 +582,11 @@
 
         // --- Interaction Bridging (AR to DOM) ---
         function triggerClickAtCursor() {
-            // Hide cursor temporarily to find element beneath it
             cursorEl.style.display = 'none';
             const element = document.elementFromPoint(state.cursorX, state.cursorY);
             cursorEl.style.display = 'block';
 
             if (element) {
-                // Find nearest .ar-clickable parent if element itself isn't
                 const clickable = element.closest('.ar-clickable');
                 if (clickable) {
                     clickable.click();
@@ -670,7 +668,7 @@
             document.getElementById('game-instruction').innerText = gameData.instruction;
             
             updateProgress(0, gameData.total);
-            document.getElementById('game-arena').innerHTML = ''; // Clear arena
+            document.getElementById('game-arena').innerHTML = ''; 
             
             changeScreen('game');
             gameData.init();
@@ -681,20 +679,17 @@
             currentGameState.active = false;
             playSound('success');
             
-            // Calculate points
             const timeTaken = Math.floor((Date.now() - state.missionStartTime) / 1000);
             let points = 100;
             points -= (currentGameState.incorrect * 10);
             
-            // โบนัสทำเวลาดี (น้อยกว่า 20 วินาที ได้โบนัสเพิ่ม)
             if(timeTaken < 20) {
                 points += (20 - timeTaken) * 2; 
             }
-            if (points < 20) points = 20; // Minimum points
+            if (points < 20) points = 20; 
             
             updateScore(points);
             
-            // Save local data
             const missionData = {
                 mission: state.currentMission,
                 score: points,
@@ -704,7 +699,6 @@
             };
             state.playData.push(missionData);
 
-            // ส่งข้อมูลไป Google Apps Script แบบ Background
             sendDataToGAS(missionData);
 
             document.getElementById('game-arena').innerHTML = `
@@ -732,7 +726,6 @@
                 if (!currentGameState.active) return;
                 arena.innerHTML = ''; 
                 
-                // Random position within arena limits
                 const x = Math.random() * 60 + 20; 
                 const y = Math.random() * 60 + 20;
                 
@@ -758,7 +751,6 @@
                 
                 arena.appendChild(orb);
             };
-            
             spawnOrb();
         }
 
@@ -766,7 +758,7 @@
         function initWhileGame() {
             const arena = document.getElementById('game-arena');
             const total = games.while.total;
-            currentGameState.count = 0; // Current Power
+            currentGameState.count = 0; 
             
             arena.innerHTML = `
                 <div class="flex flex-col items-center">
@@ -788,7 +780,7 @@
             chargeBtn.onclick = () => {
                 if (!currentGameState.active) return;
                 playSound('click');
-                currentGameState.count += 5; // ชาร์จทีละ 5% จะต้องกด 20 ครั้ง
+                currentGameState.count += 5; 
                 currentGameState.correct++;
                 
                 if(currentGameState.count > 100) currentGameState.count = 100;
@@ -845,9 +837,7 @@
             const sequence = [2, 4, 6, 8, 10];
             const options = [2, 4, 6, 8, 10, 5, 7, 9];
             
-            // สลับตำแหน่งปุ่มตัวเลข
             options.sort(() => Math.random() - 0.5);
-            
             currentGameState.expectedIndex = 0;
             
             let html = '<div class="flex flex-wrap justify-center gap-4 max-w-lg">';
@@ -900,7 +890,6 @@
             
             let html = '<div class="grid grid-cols-3 gap-4 md:gap-8 max-w-lg">';
             for(let i=0; i<total; i++) {
-                // คำนวณพิกัดสำหรับแสดงผลให้ผู้เล่นดู
                 const row = Math.floor(i / 3);
                 const col = i % 3;
                 html += `
@@ -943,7 +932,6 @@
                 arena.innerHTML = ''; 
                 clearTimeout(spawnTimer);
                 
-                // สุ่มสร้าง Bug 30% หรือ ข้อมูลปกติ 70%
                 const isBug = Math.random() < 0.3;
                 
                 const x = Math.random() * 60 + 20; 
@@ -968,7 +956,7 @@
                         playSound('error');
                         currentGameState.incorrect++;
                         item.classList.add('scale-150', 'opacity-0');
-                        spawnTimer = setTimeout(spawnItem, 200); // เกิดใหม่เร็วขึ้น
+                        spawnTimer = setTimeout(spawnItem, 200); 
                     } else {
                         playSound('collect');
                         currentGameState.count++;
@@ -986,7 +974,6 @@
                 
                 arena.appendChild(item);
                 
-                // ถ้ายืนรอเฉยๆ ไม่ยอมจิ้ม Bug ให้ Bug หายไปเอง แล้วเกิดใหม่
                 if(isBug) {
                      spawnTimer = setTimeout(() => {
                          if(currentGameState.active) spawnItem();
@@ -1008,8 +995,9 @@
 
         // --- Google Apps Script Connection ---
         function sendDataToGAS(missionData) {
+            // หากไม่ได้ใส่ค่าใน APPSCRIPT_URL ให้ข้ามการส่งข้อมูลไปเลย (ป้องกัน Error)
             if (!APPSCRIPT_URL || APPSCRIPT_URL.trim() === '') {
-                console.log("ยังไม่ได้ตั้งค่า APPSCRIPT_URL ระบบจะข้ามการส่งข้อมูลไป Google Sheet");
+                console.log("https://script.google.com/macros/s/AKfycbxAF5qCn6HmAmN8vsDmlccHBlYYo__U-9ngQ0kg5Gy3spZ-ZWbqfW99Bqch9bx0vedK8g/exec");
                 return;
             }
             
@@ -1023,7 +1011,6 @@
                 timestamp: new Date().toISOString()
             };
 
-            // ใช้ POST และกำหนด Content-Type เป็น text/plain เพื่อหลีกเลี่ยงปัญหา CORS
             fetch(APPSCRIPT_URL, {
                 method: 'POST',
                 headers: {
